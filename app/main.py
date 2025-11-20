@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, engine, SessionLocal
@@ -36,10 +37,16 @@ def health():
 
 
 @app.get("/webhook/whatsapp")
-def whatsapp_verify(mode: str, challenge: str, verify_token: str):
+def whatsapp_verify(request: Request):
+    # Meta sends hub.mode, hub.verify_token, hub.challenge
+    qp = request.query_params
+    mode = qp.get("hub.mode") or qp.get("mode")
+    verify_token = qp.get("hub.verify_token") or qp.get("verify_token")
+    challenge = qp.get("hub.challenge") or qp.get("challenge") or ""
+
     if mode == "subscribe" and verify_token == settings.wa_verify_token:
-        return challenge
-    return "forbidden"
+        return PlainTextResponse(challenge, status_code=200)
+    return PlainTextResponse("forbidden", status_code=403)
 
 
 @app.post("/webhook/whatsapp")
