@@ -207,5 +207,3 @@ def handle_text_message(db: Session, from_phone: str, text: str) -> None:
 
     # Default response
     wa.send_text(from_phone, "Unrecognized command. Send HELP for available commands.")
-*** End Patch  ***!
-

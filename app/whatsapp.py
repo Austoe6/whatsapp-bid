@@ -27,5 +27,3 @@ def send_text(to_phone: str, body: str) -> None:
 def broadcast_text(recipients: Iterable[str], body: str) -> None:
     for phone in recipients:
         send_text(phone, body)
-*** End Patch  ```json
-

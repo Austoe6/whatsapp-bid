@@ -140,5 +140,3 @@ def get_opted_in_buyers_for_listing(db: Session, listing: models.Listing) -> lis
         )
     )
     return db.execute(stmt).scalars().all()
-*** End Patch  المادة
-

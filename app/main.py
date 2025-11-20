@@ -88,5 +88,3 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                     if text and from_phone:
                         handle_text_message(db, from_phone, text)
     return {"success": True}
-*** End Patch  ```json
-

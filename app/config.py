@@ -16,5 +16,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # load at import time for simplicity
-*** End Patch  ***!
-

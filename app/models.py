@@ -72,5 +72,3 @@ class SessionState(Base):
     step = Column(Integer, nullable=True)
     data_json = Column(Text, nullable=True)  # JSON-encoded state data
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-*** End Patch  ***!
-
