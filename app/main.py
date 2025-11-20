@@ -27,8 +27,14 @@ def get_db():
 
 @app.on_event("startup")
 def on_startup():
-    # Create DB tables
-    Base.metadata.create_all(bind=engine)
+    # Avoid writing to read-only FS on serverless. Only auto-create for local sqlite.
+    try:
+        from .config import settings as _s
+        if _s.database_url.startswith("sqlite"):
+            Base.metadata.create_all(bind=engine)
+    except Exception:
+        # Suppress startup errors to keep webhook verification working
+        pass
 
 
 @app.get("/health")
