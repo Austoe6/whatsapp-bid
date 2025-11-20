@@ -5,5 +5,4 @@ httpx
 pydantic
 pydantic-settings
 python-dotenv
-vercel-http
 
