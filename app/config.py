@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     wa_verify_token: str = Field(default="", alias="WA_VERIFY_TOKEN")
     app_base_url: str = Field(default="", alias="APP_BASE_URL")
     database_url: str = Field(default="sqlite:///./app.db", alias="DATABASE_URL")
+    admin_init_token: str = Field(default="", alias="ADMIN_INIT_TOKEN")
 
     class Config:
         env_file = ".env"

@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, engine, SessionLocal
@@ -88,3 +88,15 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                     if text and from_phone:
                         handle_text_message(db, from_phone, text)
     return {"success": True}
+
+
+@app.post("/admin/init-db")
+def admin_init_db(request: Request):
+    token = request.query_params.get("token") or request.headers.get("x-admin-token") or ""
+    if not token or token != settings.admin_init_token:
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        Base.metadata.create_all(bind=engine)
+        return {"ok": True}
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
