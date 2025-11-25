@@ -11,6 +11,7 @@ HELP_TEXT = (
     "- HELP\n"
     "- JOIN buyer | JOIN seller\n"
     "- SUBSCRIBE <commodity> <region>\n"
+    "- LISTINGS (see open listings)\n"
     "- LIST (seller listing flow)\n"
     "- BID <listingId> <pricePerUnit> <quantity>\n"
     "- ACCEPT <bidId> (seller)\n"
@@ -23,6 +24,29 @@ def handle_text_message(db: Session, from_phone: str, text: str) -> None:
 
     if msg.upper().startswith("HELP") or msg == "?":
         wa.send_text(from_phone, HELP_TEXT)
+        return
+
+    if msg.upper().startswith("LISTINGS"):
+        # Show ALL relevant open listings based on user's opt-ins; fallback to all open listings
+        listings = crud.list_open_listings_for_user(db, user_id=user.id, limit=None)
+        if not listings:
+            listings = crud.list_open_listings(db)
+        if not listings:
+            wa.send_text(from_phone, "No open listings right now.")
+            return
+        # Chunk results to avoid overly long WhatsApp messages
+        header = f"Open listings ({len(listings)}):"
+        chunk_size = 15
+        lines_chunk: list[str] = []
+        for idx, lst in enumerate(listings, start=1):
+            minp = "N/A" if lst.min_price is None else f"{lst.min_price}"
+            lines_chunk.append(f"- ID {lst.id}: {lst.commodity} {lst.quantity} {lst.unit} @ {lst.location} | Min: {minp}")
+            if len(lines_chunk) >= chunk_size:
+                wa.send_text(from_phone, header + "\n" + "\n".join(lines_chunk))
+                lines_chunk = []
+        if lines_chunk:
+            wa.send_text(from_phone, header + "\n" + "\n".join(lines_chunk))
+        wa.send_text(from_phone, "To bid: BID <listingId> <pricePerUnit> <quantity>")
         return
 
     if msg.upper().startswith("JOIN"):
@@ -141,14 +165,19 @@ def handle_text_message(db: Session, from_phone: str, text: str) -> None:
 
             # Broadcast announcement to opted-in buyers
             buyers = crud.get_opted_in_buyers_for_listing(db, listing)
+            body = (
+                f"New listing #{listing.id}: {listing.commodity} {listing.quantity} {listing.unit} at {listing.location}.\n"
+                f"To bid: BID {listing.id} <pricePerUnit> <quantity>"
+            )
             if buyers:
-                body = (
-                    f"New listing #{listing.id}: {listing.commodity} {listing.quantity} {listing.unit} at {listing.location}.\n"
-                    f"Reply: BID {listing.id} <pricePerUnit> <quantity>"
-                )
-                wa.broadcast_text([b.phone for b in buyers], body)
+                wa.broadcast_text([b.phone for b in buyers if b.phone != from_phone], body)
             else:
-                wa.send_text(from_phone, "No opted-in buyers found for this commodity/region yet.")
+                # Fallback: broadcast to all active buyers
+                all_buyers = crud.get_all_buyers(db)
+                if all_buyers:
+                    wa.broadcast_text([b.phone for b in all_buyers if b.phone != from_phone], body)
+                else:
+                    wa.send_text(from_phone, "No buyers registered yet.")
             return
 
     # Bidding
@@ -168,6 +197,14 @@ def handle_text_message(db: Session, from_phone: str, text: str) -> None:
                 return
             bid = crud.create_bid(db, listing_id=listing_id, buyer_id=user.id, price_per_unit=price, quantity=qty, note=None)
             wa.send_text(from_phone, f"Bid placed. ID {bid.id}.")
+            # Notify seller about new bid
+            seller = crud.get_user_by_id(db, listing.seller_id)
+            if seller and seller.phone:
+                wa.send_text(
+                    seller.phone,
+                    f"New bid #{bid.id} on your listing {listing.id}: {price} per {listing.unit}, qty {qty} from {from_phone}.\n"
+                    f"To accept: ACCEPT {bid.id}"
+                )
         else:
             wa.send_text(from_phone, "Usage: BID <listingId> <pricePerUnit> <quantity>")
         return

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from . import models
 
 
@@ -91,6 +91,27 @@ def list_open_listings(db: Session) -> List[models.Listing]:
     return db.execute(stmt).scalars().all()
 
 
+def list_open_listings_for_user(db: Session, user_id: int, limit: Optional[int] = None) -> List[models.Listing]:
+    # Open listings matching user's active opt-ins (commodity + region)
+    stmt = (
+        select(models.Listing)
+        .join(
+            models.OptIn,
+            and_(
+                models.OptIn.user_id == user_id,
+                models.OptIn.active == 1,
+                models.OptIn.commodity == models.Listing.commodity,
+                models.OptIn.region == models.Listing.location,
+            ),
+        )
+        .where(models.Listing.status == "open")
+        .order_by(models.Listing.created_at.desc())
+    )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
 def close_listing(db: Session, listing: models.Listing) -> models.Listing:
     listing.status = "closed"
     db.add(listing)
@@ -140,3 +161,13 @@ def get_opted_in_buyers_for_listing(db: Session, listing: models.Listing) -> lis
         )
     )
     return db.execute(stmt).scalars().all()
+
+
+def get_all_buyers(db: Session) -> List[models.User]:
+    stmt = select(models.User).where(models.User.role == "buyer", models.User.status == "active")
+    return db.execute(stmt).scalars().all()
+
+
+def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
+    stmt = select(models.User).where(models.User.id == user_id)
+    return db.execute(stmt).scalar_one_or_none()
